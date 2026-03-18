@@ -1,0 +1,132 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --radius: 1rem;
+
+    /* Coirform palette — OKLCH raw L C H */
+    --background: 0.94 0.012 85;
+    --foreground: 0.18 0.02 60;
+    --card: 0.93 0.013 80;
+    --card-foreground: 0.18 0.02 60;
+    --popover: 0.96 0.01 82;
+    --popover-foreground: 0.18 0.02 60;
+    --primary: 0.46 0.095 148;
+    --primary-foreground: 0.98 0 0;
+    --secondary: 0.86 0.022 72;
+    --secondary-foreground: 0.22 0.03 60;
+    --muted: 0.9 0.014 80;
+    --muted-foreground: 0.5 0.012 70;
+    --accent: 0.84 0.018 78;
+    --accent-foreground: 0.22 0.03 60;
+    --destructive: 0.577 0.245 27.325;
+    --destructive-foreground: 0.985 0 0;
+    --border: 0.84 0.018 78;
+    --input: 0.84 0.018 78;
+    --ring: 0.46 0.095 148;
+    --chart-1: 0.646 0.222 41.116;
+    --chart-2: 0.6 0.118 184.704;
+    --chart-3: 0.398 0.07 227.392;
+    --chart-4: 0.828 0.189 84.429;
+    --chart-5: 0.769 0.188 70.08;
+    --sidebar: 0.9 0.014 80;
+    --sidebar-foreground: 0.18 0.02 60;
+    --sidebar-primary: 0.46 0.095 148;
+    --sidebar-primary-foreground: 0.98 0 0;
+    --sidebar-accent: 0.86 0.022 72;
+    --sidebar-accent-foreground: 0.22 0.03 60;
+    --sidebar-border: 0.84 0.018 78;
+    --sidebar-ring: 0.46 0.095 148;
+
+    /* eco custom */
+    --eco-preview-bg: 0.86 0.022 72;
+    --eco-green: 0.46 0.095 148;
+    --eco-dark: 0.2 0.01 220;
+    --eco-dark-fg: 0.92 0.006 80;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+}
+
+/* Texture tile patterns */
+.texture-smooth {
+  background: linear-gradient(135deg, #e8e0d0 0%, #d4c8b8 100%);
+}
+.texture-ribbed {
+  background: repeating-linear-gradient(
+    90deg,
+    #c8bba8 0px,
+    #c8bba8 4px,
+    #d8cbb8 4px,
+    #d8cbb8 8px
+  );
+}
+.texture-woven {
+  background: repeating-conic-gradient(#c8bba8 0% 25%, #d8cbb8 0% 50%) 0 0 /
+    10px 10px;
+}
+.texture-matte {
+  background: #d0c4b0;
+}
+.texture-glossy {
+  background: linear-gradient(135deg, #efe8d8 0%, #c8bba8 40%, #ece4d4 100%);
+}
+.texture-rustic {
+  background: linear-gradient(
+    135deg,
+    #b8a890 0%,
+    #c8b8a0 25%,
+    #b0a088 50%,
+    #c0b098 75%,
+    #b8a890 100%
+  );
+}
+.texture-carbon {
+  background: repeating-conic-gradient(#444 0% 25%, #2a2a2a 0% 50%) 0 0 / 8px
+    8px;
+}
+.texture-honeycomb {
+  background-color: #c8bba8;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49'%3E%3Cpath fill='none' stroke='%23b8ab98' stroke-width='1' d='M14 1l13 7.5v15L14 31 1 23.5V8.5z'/%3E%3Cpath fill='none' stroke='%23b8ab98' stroke-width='1' d='M14 31l13 7.5v9L14 49 1 41.5v-9z'/%3E%3C/svg%3E");
+}
+
+/* Pattern swatch previews */
+.pattern-solid {
+  background: #4a7c59;
+}
+.pattern-gradient {
+  background: linear-gradient(135deg, #4a7c59 0%, #8b6f4e 100%);
+}
+.pattern-twotone {
+  background: linear-gradient(90deg, #4a7c59 50%, #8b6f4e 50%);
+}
+.pattern-speckled {
+  background-color: #4a7c59;
+  background-image: radial-gradient(circle, #8b6f4e 1px, transparent 1px),
+    radial-gradient(circle, #2c1810 0.5px, transparent 0.5px);
+  background-size: 12px 12px, 7px 7px;
+  background-position: 0 0, 4px 4px;
+}
+
+/* Cart drawer animation */
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease-out;
+}
