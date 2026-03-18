@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
+import { useMemo } from "react";
 import type { ColorOption, TextureOption } from "../App";
 
 interface CasePreviewProps {
@@ -171,13 +172,17 @@ type PhoneSize = { width: number; height: number };
 type CutoutStyle = "dynamic-island" | "notch" | "punch-hole" | "punch-hole-lg";
 type CameraStyle =
   | "triple-pro-max"
-  | "triple-pro"
+  | "triple-pro-15"
   | "triple-14pro"
-  | "dual"
-  | "samsung-ultra-bar"
-  | "samsung-standard"
-  | "pixel-bar"
-  | "circle";
+  | "dual-vertical"
+  | "dual-diagonal"
+  | "samsung-ultra"
+  | "samsung-triple"
+  | "pixel-bar-triple"
+  | "pixel-bar-dual"
+  | "oneplus-circle"
+  | "xiaomi-ultra"
+  | "xiaomi-triple";
 type ButtonLayout = "iphone" | "samsung" | "pixel";
 
 interface PhoneShape {
@@ -230,7 +235,6 @@ function getPhoneShape(phoneModel: string): PhoneShape {
   } else if (m.includes("pixel")) {
     cutout = "punch-hole-lg";
   } else {
-    // Samsung, OnePlus, Xiaomi
     cutout = "punch-hole";
   }
 
@@ -239,19 +243,32 @@ function getPhoneShape(phoneModel: string): PhoneShape {
   if (m.includes("iphone 16 pro")) {
     camera = "triple-pro-max";
   } else if (m.includes("iphone 15 pro")) {
-    camera = "triple-pro";
+    camera = "triple-pro-15";
   } else if (m.includes("iphone 14 pro")) {
     camera = "triple-14pro";
-  } else if (m.includes("iphone")) {
-    camera = "dual";
+  } else if (m.includes("iphone 16") || m.includes("iphone 15")) {
+    camera = "dual-vertical";
+  } else if (m.includes("iphone 14") || m.includes("iphone 13")) {
+    camera = "dual-diagonal";
   } else if (m.includes("samsung") && m.includes("ultra")) {
-    camera = "samsung-ultra-bar";
+    camera = "samsung-ultra";
   } else if (m.includes("samsung")) {
-    camera = "samsung-standard";
+    camera = "samsung-triple";
+  } else if (
+    m.includes("pixel") &&
+    (m.includes("pro") || m.includes("8 pro"))
+  ) {
+    camera = "pixel-bar-triple";
   } else if (m.includes("pixel")) {
-    camera = "pixel-bar";
+    camera = "pixel-bar-dual";
+  } else if (m.includes("oneplus")) {
+    camera = "oneplus-circle";
+  } else if (m.includes("xiaomi") && m.includes("ultra")) {
+    camera = "xiaomi-ultra";
+  } else if (m.includes("xiaomi")) {
+    camera = "xiaomi-triple";
   } else {
-    camera = "circle";
+    camera = "dual-vertical";
   }
 
   // Buttons
@@ -324,7 +341,6 @@ function renderCutout(cutout: CutoutStyle, width: number) {
       />
     );
   }
-  // punch-hole (Samsung / default)
   return (
     <div
       className="absolute"
@@ -341,198 +357,552 @@ function renderCutout(cutout: CutoutStyle, width: number) {
   );
 }
 
+// SVG lens component with realistic multi-stop radial gradient
+function SvgLens({
+  cx,
+  cy,
+  r,
+  gradId,
+}: { cx: number; cy: number; r: number; gradId: string }) {
+  return (
+    <>
+      <defs>
+        <radialGradient id={gradId} cx="30%" cy="30%" r="70%">
+          <stop offset="0%" stopColor="#7090c8" />
+          <stop offset="18%" stopColor="#1e2850" />
+          <stop offset="45%" stopColor="#060810" />
+          <stop offset="80%" stopColor="#030508" />
+          <stop offset="100%" stopColor="#1a1a1f" />
+        </radialGradient>
+      </defs>
+      {/* Metallic outer ring */}
+      <circle cx={cx} cy={cy} r={r + 2.5} fill="#2a2a2e" />
+      <circle cx={cx} cy={cy} r={r + 1.5} fill="#3a3a40" />
+      {/* Lens glass */}
+      <circle cx={cx} cy={cy} r={r} fill={`url(#${gradId})`} />
+      {/* Specular highlight */}
+      <ellipse
+        cx={cx - r * 0.25}
+        cy={cy - r * 0.3}
+        rx={r * 0.3}
+        ry={r * 0.18}
+        fill="rgba(255,255,255,0.18)"
+      />
+    </>
+  );
+}
+
+function FlashDot({ cx, cy }: { cx: number; cy: number }) {
+  return (
+    <>
+      <circle cx={cx} cy={cy} r={4} fill="#2a2510" />
+      <circle cx={cx} cy={cy} r={3} fill="#e8c060" />
+      <circle cx={cx - 1} cy={cy - 1} r={1} fill="rgba(255,255,200,0.8)" />
+    </>
+  );
+}
+
 function renderCamera(camera: CameraStyle, _colorHex: string, width: number) {
-  const lensStyle = {
-    width: 18,
-    height: 18,
-    background:
-      "radial-gradient(circle at 35% 35%, rgba(80,80,120,0.9), rgba(10,10,20,0.95))",
-    borderRadius: "50%" as const,
-    boxShadow:
-      "inset 0 0 4px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.05)",
-  };
-  const lensSmall = { ...lensStyle, width: 14, height: 14 };
+  const ns = camera; // namespace for gradient IDs
 
-  const moduleBase = {
-    background: "rgba(0,0,0,0.65)",
-    boxShadow: "inset 0 0 8px rgba(0,0,0,0.8), 0 0 0 2px rgba(0,0,0,0.4)",
-    display: "flex" as const,
-    alignItems: "center" as const,
-    justifyContent: "center" as const,
-  };
-
-  if (camera === "triple-pro-max" || camera === "triple-pro") {
-    const size = camera === "triple-pro-max" ? 50 : 48;
+  if (camera === "triple-pro-max") {
+    // 56x56 square bump, top-right, triangle lens layout
+    const bw = 56;
+    const bh = 56;
     return (
       <div
         className="absolute"
-        style={{
-          top: 10,
-          right: 14,
-          width: size,
-          height: size,
-          ...moduleBase,
-          borderRadius: 14,
-          flexDirection: "column",
-          gap: 2,
-          padding: 4,
-        }}
+        style={{ top: 10, right: 12, width: bw, height: bh }}
       >
-        {/* Triangle arrangement: top-center, bottom-left, bottom-right */}
-        <div style={{ display: "flex", justifyContent: "center" }}>
-          <div style={lensStyle} />
-        </div>
-        <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
-          <div style={lensSmall} />
-          <div style={lensSmall} />
-        </div>
+        <svg
+          width={bw}
+          height={bh}
+          viewBox={`0 0 ${bw} ${bh}`}
+          role="img"
+          aria-label="Camera module"
+        >
+          {/* Housing */}
+          <rect
+            x={0}
+            y={0}
+            width={bw}
+            height={bh}
+            rx={16}
+            ry={16}
+            fill="#141418"
+            stroke="#2e2e34"
+            strokeWidth={1}
+          />
+          <rect
+            x={1}
+            y={1}
+            width={bw - 2}
+            height={bh - 2}
+            rx={15}
+            ry={15}
+            fill="none"
+            stroke="rgba(255,255,255,0.06)"
+            strokeWidth={1}
+          />
+          {/* Top-center main lens */}
+          <SvgLens cx={28} cy={16} r={9} gradId={`${ns}-l1`} />
+          {/* Bottom-left */}
+          <SvgLens cx={15} cy={40} r={7.5} gradId={`${ns}-l2`} />
+          {/* Bottom-right */}
+          <SvgLens cx={41} cy={40} r={7.5} gradId={`${ns}-l3`} />
+          {/* Flash */}
+          <FlashDot cx={43} cy={16} />
+        </svg>
+      </div>
+    );
+  }
+
+  if (camera === "triple-pro-15") {
+    const bw = 52;
+    const bh = 52;
+    return (
+      <div
+        className="absolute"
+        style={{ top: 10, right: 12, width: bw, height: bh }}
+      >
+        <svg
+          width={bw}
+          height={bh}
+          viewBox={`0 0 ${bw} ${bh}`}
+          role="img"
+          aria-label="Camera module"
+        >
+          <rect
+            x={0}
+            y={0}
+            width={bw}
+            height={bh}
+            rx={15}
+            ry={15}
+            fill="#141418"
+            stroke="#2e2e34"
+            strokeWidth={1}
+          />
+          <rect
+            x={1}
+            y={1}
+            width={bw - 2}
+            height={bh - 2}
+            rx={14}
+            ry={14}
+            fill="none"
+            stroke="rgba(255,255,255,0.06)"
+            strokeWidth={1}
+          />
+          <SvgLens cx={26} cy={15} r={9} gradId={`${ns}-l1`} />
+          <SvgLens cx={14} cy={38} r={7.5} gradId={`${ns}-l2`} />
+          <SvgLens cx={38} cy={38} r={7.5} gradId={`${ns}-l3`} />
+          <FlashDot cx={41} cy={15} />
+        </svg>
       </div>
     );
   }
 
   if (camera === "triple-14pro") {
+    const bw = 48;
+    const bh = 48;
     return (
       <div
         className="absolute"
-        style={{
-          top: 10,
-          right: 14,
-          width: 44,
-          height: 44,
-          ...moduleBase,
-          borderRadius: 12,
-          flexDirection: "column",
-          gap: 2,
-          padding: 4,
-        }}
+        style={{ top: 10, right: 12, width: bw, height: bh }}
       >
-        <div style={{ display: "flex", justifyContent: "center" }}>
-          <div style={{ ...lensStyle, width: 16, height: 16 }} />
-        </div>
-        <div style={{ display: "flex", gap: 3, justifyContent: "center" }}>
-          <div style={lensSmall} />
-          <div style={lensSmall} />
-        </div>
+        <svg
+          width={bw}
+          height={bh}
+          viewBox={`0 0 ${bw} ${bh}`}
+          role="img"
+          aria-label="Camera module"
+        >
+          <rect
+            x={0}
+            y={0}
+            width={bw}
+            height={bh}
+            rx={13}
+            ry={13}
+            fill="#141418"
+            stroke="#2e2e34"
+            strokeWidth={1}
+          />
+          <rect
+            x={1}
+            y={1}
+            width={bw - 2}
+            height={bh - 2}
+            rx={12}
+            ry={12}
+            fill="none"
+            stroke="rgba(255,255,255,0.06)"
+            strokeWidth={1}
+          />
+          <SvgLens cx={24} cy={14} r={8} gradId={`${ns}-l1`} />
+          <SvgLens cx={13} cy={35} r={7} gradId={`${ns}-l2`} />
+          <SvgLens cx={35} cy={35} r={7} gradId={`${ns}-l3`} />
+          <FlashDot cx={38} cy={14} />
+        </svg>
       </div>
     );
   }
 
-  if (camera === "dual") {
+  if (camera === "dual-vertical") {
+    const bw = 28;
+    const bh = 46;
     return (
       <div
         className="absolute"
-        style={{
-          top: 12,
-          right: 14,
-          width: 40,
-          height: 26,
-          ...moduleBase,
-          borderRadius: 12,
-          flexDirection: "row",
-          gap: 4,
-        }}
+        style={{ top: 10, right: 14, width: bw, height: bh }}
       >
-        <div style={lensSmall} />
-        <div style={lensSmall} />
+        <svg
+          width={bw}
+          height={bh}
+          viewBox={`0 0 ${bw} ${bh}`}
+          role="img"
+          aria-label="Camera module"
+        >
+          <rect
+            x={0}
+            y={0}
+            width={bw}
+            height={bh}
+            rx={10}
+            ry={10}
+            fill="#141418"
+            stroke="#2e2e34"
+            strokeWidth={1}
+          />
+          <SvgLens cx={14} cy={12} r={8} gradId={`${ns}-l1`} />
+          <SvgLens cx={14} cy={30} r={8} gradId={`${ns}-l2`} />
+          <FlashDot cx={14} cy={41} />
+        </svg>
       </div>
     );
   }
 
-  if (camera === "samsung-ultra-bar") {
+  if (camera === "dual-diagonal") {
+    const bw = 44;
+    const bh = 28;
     return (
       <div
         className="absolute"
-        style={{
-          top: 10,
-          right: 18,
-          width: 28,
-          height: 90,
-          ...moduleBase,
-          borderRadius: 14,
-          flexDirection: "column",
-          gap: 6,
-          padding: 6,
-        }}
+        style={{ top: 12, right: 12, width: bw, height: bh }}
       >
-        <div style={lensStyle} />
-        <div style={lensSmall} />
-        <div style={lensSmall} />
-        {/* Flash */}
-        <div
-          style={{
-            width: 6,
-            height: 6,
-            background: "rgba(255,240,200,0.85)",
-            borderRadius: "50%",
-          }}
-        />
+        <svg
+          width={bw}
+          height={bh}
+          viewBox={`0 0 ${bw} ${bh}`}
+          role="img"
+          aria-label="Camera module"
+        >
+          <rect
+            x={0}
+            y={0}
+            width={bw}
+            height={bh}
+            rx={10}
+            ry={10}
+            fill="#141418"
+            stroke="#2e2e34"
+            strokeWidth={1}
+          />
+          <SvgLens cx={14} cy={10} r={7.5} gradId={`${ns}-l1`} />
+          <SvgLens cx={30} cy={18} r={7.5} gradId={`${ns}-l2`} />
+          <FlashDot cx={38} cy={8} />
+        </svg>
       </div>
     );
   }
 
-  if (camera === "samsung-standard") {
+  if (camera === "samsung-ultra") {
+    // No housing — floating individual lenses, top-right
+    const bw = 32;
+    const bh = 110;
     return (
       <div
         className="absolute"
-        style={{
-          top: 12,
-          right: 14,
-          width: 40,
-          height: 40,
-          ...moduleBase,
-          borderRadius: "50%",
-        }}
+        style={{ top: 10, right: 14, width: bw, height: bh }}
       >
-        <div style={{ ...lensStyle, width: 24, height: 24 }} />
+        <svg
+          width={bw}
+          height={bh}
+          viewBox={`0 0 ${bw} ${bh}`}
+          role="img"
+          aria-label="Camera module"
+        >
+          {/* Individual metallic rings for each lens */}
+          <SvgLens cx={16} cy={14} r={11} gradId={`${ns}-l1`} />
+          <SvgLens cx={16} cy={44} r={9} gradId={`${ns}-l2`} />
+          <SvgLens cx={16} cy={71} r={9} gradId={`${ns}-l3`} />
+          <SvgLens cx={16} cy={96} r={9} gradId={`${ns}-l4`} />
+          <FlashDot cx={27} cy={44} />
+        </svg>
       </div>
     );
   }
 
-  if (camera === "pixel-bar") {
-    const barLeft = Math.round(width / 2) - 50;
+  if (camera === "samsung-triple") {
+    // Rounded rectangle on top-left, 3 lenses stacked
+    const bw = 30;
+    const bh = 62;
     return (
       <div
         className="absolute"
-        style={{
-          top: 10,
-          left: barLeft,
-          width: 100,
-          height: 28,
-          ...moduleBase,
-          borderRadius: 14,
-          flexDirection: "row",
-          gap: 8,
-          padding: "0 10px",
-        }}
+        style={{ top: 10, left: 14, width: bw, height: bh }}
       >
-        <div style={lensStyle} />
-        <div style={lensSmall} />
-        <div
-          style={{
-            width: 6,
-            height: 6,
-            background: "rgba(255,240,200,0.85)",
-            borderRadius: "50%",
-          }}
-        />
+        <svg
+          width={bw}
+          height={bh}
+          viewBox={`0 0 ${bw} ${bh}`}
+          role="img"
+          aria-label="Camera module"
+        >
+          <rect
+            x={0}
+            y={0}
+            width={bw}
+            height={bh}
+            rx={10}
+            ry={10}
+            fill="#141418"
+            stroke="#2e2e34"
+            strokeWidth={1}
+          />
+          <SvgLens cx={15} cy={13} r={8.5} gradId={`${ns}-l1`} />
+          <SvgLens cx={15} cy={35} r={7.5} gradId={`${ns}-l2`} />
+          <SvgLens cx={15} cy={54} r={7.5} gradId={`${ns}-l3`} />
+          <FlashDot cx={24} cy={54} />
+        </svg>
       </div>
     );
   }
 
-  // circle (OnePlus, Xiaomi, default)
+  if (camera === "pixel-bar-triple") {
+    // Full-width horizontal bar
+    const bw = width - 20;
+    const bh = 32;
+    return (
+      <div
+        className="absolute"
+        style={{ top: 10, left: 10, width: bw, height: bh }}
+      >
+        <svg
+          width={bw}
+          height={bh}
+          viewBox={`0 0 ${bw} ${bh}`}
+          role="img"
+          aria-label="Camera module"
+        >
+          <rect
+            x={0}
+            y={0}
+            width={bw}
+            height={bh}
+            rx={10}
+            ry={10}
+            fill="#111115"
+            stroke="#2a2a30"
+            strokeWidth={1}
+          />
+          <SvgLens cx={22} cy={16} r={10} gradId={`${ns}-l1`} />
+          <SvgLens cx={50} cy={16} r={8} gradId={`${ns}-l2`} />
+          <SvgLens cx={74} cy={16} r={8} gradId={`${ns}-l3`} />
+          <FlashDot cx={bw - 16} cy={16} />
+        </svg>
+      </div>
+    );
+  }
+
+  if (camera === "pixel-bar-dual") {
+    const bw = width - 20;
+    const bh = 28;
+    return (
+      <div
+        className="absolute"
+        style={{ top: 10, left: 10, width: bw, height: bh }}
+      >
+        <svg
+          width={bw}
+          height={bh}
+          viewBox={`0 0 ${bw} ${bh}`}
+          role="img"
+          aria-label="Camera module"
+        >
+          <rect
+            x={0}
+            y={0}
+            width={bw}
+            height={bh}
+            rx={9}
+            ry={9}
+            fill="#111115"
+            stroke="#2a2a30"
+            strokeWidth={1}
+          />
+          <SvgLens cx={20} cy={14} r={9} gradId={`${ns}-l1`} />
+          <SvgLens cx={46} cy={14} r={8} gradId={`${ns}-l2`} />
+          <FlashDot cx={bw - 16} cy={14} />
+        </svg>
+      </div>
+    );
+  }
+
+  if (camera === "oneplus-circle") {
+    // Large circular housing, 3 lenses in triangle
+    const r = 26;
+    const bw = r * 2 + 4;
+    const bh = r * 2 + 4;
+    return (
+      <div
+        className="absolute"
+        style={{ top: 10, right: 14, width: bw, height: bh }}
+      >
+        <svg
+          width={bw}
+          height={bh}
+          viewBox={`0 0 ${bw} ${bh}`}
+          role="img"
+          aria-label="Camera module"
+        >
+          <circle cx={r + 2} cy={r + 2} r={r + 2} fill="#0c0c10" />
+          <circle
+            cx={r + 2}
+            cy={r + 2}
+            r={r}
+            fill="#181820"
+            stroke="#2a2a35"
+            strokeWidth={1.5}
+          />
+          {/* Triangle: top-center, bottom-left, bottom-right */}
+          <SvgLens cx={r + 2} cy={14} r={8.5} gradId={`${ns}-l1`} />
+          <SvgLens cx={14} cy={38} r={7.5} gradId={`${ns}-l2`} />
+          <SvgLens cx={r + 2 + 14} cy={38} r={7.5} gradId={`${ns}-l3`} />
+          <FlashDot cx={r + 2 + 12} cy={14} />
+        </svg>
+      </div>
+    );
+  }
+
+  if (camera === "xiaomi-ultra") {
+    // Very large circular housing with thick metallic ring + LEICA text
+    const r = 30;
+    const bw = r * 2 + 4;
+    const bh = r * 2 + 4;
+    return (
+      <div
+        className="absolute"
+        style={{ top: 8, right: 12, width: bw, height: bh }}
+      >
+        <svg
+          width={bw}
+          height={bh}
+          viewBox={`0 0 ${bw} ${bh}`}
+          role="img"
+          aria-label="Camera module"
+        >
+          {/* Outer metallic ring */}
+          <circle cx={r + 2} cy={r + 2} r={r + 2} fill="#3a3a42" />
+          <circle cx={r + 2} cy={r + 2} r={r} fill="#222228" />
+          <circle
+            cx={r + 2}
+            cy={r + 2}
+            r={r - 4}
+            fill="#141418"
+            stroke="#2a2a32"
+            strokeWidth={1}
+          />
+          {/* Main large lens centered */}
+          <SvgLens cx={r + 2} cy={r + 2} r={14} gradId={`${ns}-l1`} />
+          {/* Two flanking small lenses */}
+          <SvgLens cx={14} cy={r + 2} r={7} gradId={`${ns}-l2`} />
+          <SvgLens cx={bw - 14} cy={r + 2} r={7} gradId={`${ns}-l3`} />
+          {/* LEICA text */}
+          <text
+            x={r + 2}
+            y={bh - 8}
+            textAnchor="middle"
+            fontSize="5"
+            fontFamily="Arial"
+            fontWeight="bold"
+            fill="rgba(255,255,255,0.5)"
+            letterSpacing="1"
+          >
+            LEICA
+          </text>
+        </svg>
+      </div>
+    );
+  }
+
+  if (camera === "xiaomi-triple") {
+    // Rounded square bump, L-shape lenses
+    const bw = 48;
+    const bh = 48;
+    return (
+      <div
+        className="absolute"
+        style={{ top: 10, right: 12, width: bw, height: bh }}
+      >
+        <svg
+          width={bw}
+          height={bh}
+          viewBox={`0 0 ${bw} ${bh}`}
+          role="img"
+          aria-label="Camera module"
+        >
+          <rect
+            x={0}
+            y={0}
+            width={bw}
+            height={bh}
+            rx={14}
+            ry={14}
+            fill="#141418"
+            stroke="#2e2e34"
+            strokeWidth={1}
+          />
+          {/* Large top-left */}
+          <SvgLens cx={15} cy={15} r={10} gradId={`${ns}-l1`} />
+          {/* Smaller bottom-left */}
+          <SvgLens cx={15} cy={36} r={7.5} gradId={`${ns}-l2`} />
+          {/* Smaller bottom-right */}
+          <SvgLens cx={34} cy={36} r={7.5} gradId={`${ns}-l3`} />
+          <FlashDot cx={36} cy={15} />
+        </svg>
+      </div>
+    );
+  }
+
+  // Fallback
+  const bw = 30;
+  const bh = 46;
   return (
     <div
       className="absolute"
-      style={{
-        top: 12,
-        right: 18,
-        width: 36,
-        height: 36,
-        ...moduleBase,
-        borderRadius: "50%",
-      }}
+      style={{ top: 10, right: 14, width: bw, height: bh }}
     >
-      <div style={{ ...lensStyle, width: 22, height: 22 }} />
+      <svg
+        width={bw}
+        height={bh}
+        viewBox={`0 0 ${bw} ${bh}`}
+        role="img"
+        aria-label="Camera module"
+      >
+        <rect
+          x={0}
+          y={0}
+          width={bw}
+          height={bh}
+          rx={10}
+          ry={10}
+          fill="#141418"
+        />
+        <SvgLens cx={15} cy={13} r={8} gradId={`${ns}-l1`} />
+        <SvgLens cx={15} cy={33} r={8} gradId={`${ns}-l2`} />
+      </svg>
     </div>
   );
 }
@@ -551,10 +921,8 @@ function renderButtons(
   });
 
   if (buttons === "samsung") {
-    // Power + Bixby on right, volume on left
     return (
       <>
-        {/* Right: power */}
         <div
           className="absolute"
           style={{
@@ -566,7 +934,6 @@ function renderButtons(
             ...btnStyle("right"),
           }}
         />
-        {/* Right: bixby */}
         <div
           className="absolute"
           style={{
@@ -578,7 +945,6 @@ function renderButtons(
             ...btnStyle("right"),
           }}
         />
-        {/* Left: volume */}
         <div
           className="absolute"
           style={{
@@ -595,7 +961,6 @@ function renderButtons(
   }
 
   if (buttons === "pixel") {
-    // Power on right only
     return (
       <>
         <div
@@ -609,7 +974,6 @@ function renderButtons(
             ...btnStyle("right"),
           }}
         />
-        {/* Volume on right below power */}
         <div
           className="absolute"
           style={{
@@ -625,10 +989,9 @@ function renderButtons(
     );
   }
 
-  // iphone default
+  // iphone
   return (
     <>
-      {/* Right: power */}
       <div
         className="absolute"
         style={{
@@ -640,7 +1003,6 @@ function renderButtons(
           ...btnStyle("right"),
         }}
       />
-      {/* Left: volume up */}
       <div
         className="absolute"
         style={{
@@ -652,7 +1014,6 @@ function renderButtons(
           ...btnStyle("left"),
         }}
       />
-      {/* Left: volume down */}
       <div
         className="absolute"
         style={{
@@ -674,15 +1035,21 @@ function PhoneCaseSVG({
   patternId,
   phoneModel,
 }: PhoneCaseSVGProps) {
-  const patternBg = getPatternBackground(patternId, colorHex);
-  const textureStyle = getTextureOverlay(textureId);
+  const shape = useMemo(() => getPhoneShape(phoneModel), [phoneModel]);
+  const patternBg = useMemo(
+    () => getPatternBackground(patternId, colorHex),
+    [patternId, colorHex],
+  );
+  const textureStyle = useMemo(() => getTextureOverlay(textureId), [textureId]);
   const isSpeckled = patternId === "speckled";
 
-  const shape = getPhoneShape(phoneModel);
   const { width, height } = shape.size;
 
   return (
-    <div className="relative" style={{ width, height }}>
+    <div
+      className="relative"
+      style={{ width, height, transition: "all 0.3s ease" }}
+    >
       {/* Main case body */}
       <div
         className="absolute inset-0 overflow-hidden"
@@ -690,11 +1057,15 @@ function PhoneCaseSVG({
           borderRadius: shape.cornerRadius,
           boxShadow:
             "0 20px 60px rgba(0,0,0,0.35), 0 4px 12px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.15)",
+          transition: "all 0.3s ease",
         }}
       >
         {/* Color + Pattern layer */}
         {isSpeckled ? (
-          <div className="absolute inset-0" style={{ background: colorHex }}>
+          <div
+            className="absolute inset-0"
+            style={{ background: colorHex, transition: "background 0.3s ease" }}
+          >
             <div
               className="absolute inset-0"
               style={{
@@ -705,7 +1076,13 @@ function PhoneCaseSVG({
             />
           </div>
         ) : (
-          <div className="absolute inset-0" style={{ background: patternBg }} />
+          <div
+            className="absolute inset-0"
+            style={{
+              background: patternBg,
+              transition: "background 0.3s ease",
+            }}
+          />
         )}
 
         {/* Texture overlay */}
@@ -783,7 +1160,7 @@ export default function CasePreview({
   isAiMode,
 }: CasePreviewProps) {
   const patternId = getPatternId(pattern);
-  const previewKey = `${phoneModel}-${color.id}-${texture.id}-${patternId}`;
+  const labelKey = `${phoneModel}-${color.id}-${texture.id}-${patternId}`;
 
   return (
     <motion.div
@@ -810,61 +1187,57 @@ export default function CasePreview({
           : "Tap options to preview your design"}
       </p>
 
-      {/* Phone Case Preview */}
+      {/* Phone Case Preview — no key prop, CSS transition handles smooth updates */}
       <div className="flex-1 flex items-center justify-center w-full py-4">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={previewKey}
-            initial={{ opacity: 0, scale: 0.92, y: 8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: -4 }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
-          >
-            <PhoneCaseSVG
-              colorHex={color.hex}
-              textureId={texture.id}
-              patternId={patternId}
-              phoneModel={phoneModel}
-            />
-          </motion.div>
-        </AnimatePresence>
+        <PhoneCaseSVG
+          colorHex={color.hex}
+          textureId={texture.id}
+          patternId={patternId}
+          phoneModel={phoneModel}
+        />
       </div>
 
       {/* Variant label */}
       <div className="mb-4 text-center">
-        <motion.p
-          key={`${previewKey}-label`}
-          initial={{ opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.25, delay: 0.1 }}
-          className={`text-sm font-semibold ${
-            isAiMode ? "text-white/90" : "text-foreground"
-          }`}
-        >
-          {texture.name} ·{" "}
-          {typeof pattern === "string"
-            ? pattern
-            : (pattern as { name: string }).name}
-        </motion.p>
-        <motion.div
-          key={`${previewKey}-color`}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.25, delay: 0.15 }}
-          className="flex items-center justify-center gap-2 mt-1"
-        >
-          <span
-            className="w-3 h-3 rounded-full border border-white/30"
-            style={{ background: color.hex }}
-          />
-          <span
-            className={`text-xs ${
-              isAiMode ? "text-white/60" : "text-muted-foreground"
+        <AnimatePresence mode="wait">
+          <motion.p
+            key={`${labelKey}-label`}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.2 }}
+            className={`text-sm font-semibold ${
+              isAiMode ? "text-white/90" : "text-foreground"
             }`}
           >
-            {color.name}
-          </span>
-        </motion.div>
+            {texture.name} ·{" "}
+            {typeof pattern === "string"
+              ? pattern
+              : (pattern as { name: string }).name}
+          </motion.p>
+        </AnimatePresence>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={`${labelKey}-color`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="flex items-center justify-center gap-2 mt-1"
+          >
+            <span
+              className="w-3 h-3 rounded-full border border-white/30"
+              style={{ background: color.hex }}
+            />
+            <span
+              className={`text-xs ${
+                isAiMode ? "text-white/60" : "text-muted-foreground"
+              }`}
+            >
+              {color.name}
+            </span>
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       {/* Spec Strip */}

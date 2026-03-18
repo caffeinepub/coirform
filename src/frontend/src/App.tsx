@@ -1,6 +1,7 @@
 import { Toaster } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import type { VibeDesign } from "./backend.d";
 import AiVibePanel from "./components/AiVibePanel";
 import CartDrawer from "./components/CartDrawer";
@@ -148,6 +149,28 @@ function AppContent() {
   const [cartOpen, setCartOpen] = useState(false);
   const [orderModalOpen, setOrderModalOpen] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState<{ id: string } | null>(null);
+
+  // Check for Stripe payment redirect result
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const payment = params.get("payment");
+    if (payment === "success") {
+      toast.success("Payment successful! Your order is confirmed.");
+      // Clear param from URL
+      params.delete("payment");
+      const newUrl =
+        window.location.pathname +
+        (params.toString() ? `?${params.toString()}` : "");
+      window.history.replaceState({}, "", newUrl);
+    } else if (payment === "cancelled") {
+      toast.error("Payment cancelled.");
+      params.delete("payment");
+      const newUrl =
+        window.location.pathname +
+        (params.toString() ? `?${params.toString()}` : "");
+      window.history.replaceState({}, "", newUrl);
+    }
+  }, []);
 
   const price = getProduct(color.id, texture.id, pattern.id)?.priceInr ?? 399;
 

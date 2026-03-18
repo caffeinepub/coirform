@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import type { Order, VibeDesign } from "../backend.d";
+import type { Order, ShoppingItem, VibeDesign } from "../backend.d";
 import { useActor } from "./useActor";
 
 export function useGetVibeDesigns(vibeType: string | null) {
@@ -44,6 +44,22 @@ export function useCreateOrder() {
         params.vibe,
         params.aiSuggestionUsed,
       );
+    },
+  });
+}
+
+export interface CreateCheckoutSessionParams {
+  items: ShoppingItem[];
+  successUrl: string;
+  cancelUrl: string;
+}
+
+export function useCreateCheckoutSession() {
+  const { actor } = useActor();
+  return useMutation<string, Error, CreateCheckoutSessionParams>({
+    mutationFn: async ({ items, successUrl, cancelUrl }) => {
+      if (!actor) throw new Error("Actor not ready");
+      return actor.createCheckoutSession(items, successUrl, cancelUrl);
     },
   });
 }
