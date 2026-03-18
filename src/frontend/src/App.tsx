@@ -101,17 +101,40 @@ export const PATTERNS: PatternOption[] = [
 ];
 
 export const PHONE_MODELS = [
+  // Apple
+  "iPhone 16 Pro Max",
+  "iPhone 16 Pro",
+  "iPhone 16 Plus",
+  "iPhone 16",
+  "iPhone 15 Pro Max",
   "iPhone 15 Pro",
+  "iPhone 15 Plus",
   "iPhone 15",
   "iPhone 14 Pro",
   "iPhone 14",
   "iPhone 13",
+  // Samsung
+  "Samsung Galaxy S25 Ultra",
+  "Samsung Galaxy S25+",
+  "Samsung Galaxy S25",
   "Samsung Galaxy S24 Ultra",
+  "Samsung Galaxy S24+",
   "Samsung Galaxy S24",
   "Samsung Galaxy S23",
+  "Samsung Galaxy A55",
+  "Samsung Galaxy A35",
+  // Google
+  "Google Pixel 9 Pro",
+  "Google Pixel 9",
   "Google Pixel 8 Pro",
   "Google Pixel 8",
   "Google Pixel 7",
+  // OnePlus
+  "OnePlus 12",
+  "OnePlus 11",
+  // Xiaomi
+  "Xiaomi 14 Ultra",
+  "Xiaomi 14",
 ];
 
 function AppContent() {
