@@ -10,6 +10,7 @@ import FooterSection from "./components/FooterSection";
 import Header from "./components/Header";
 import HowItWorks from "./components/HowItWorks";
 import OrderModal from "./components/OrderModal";
+import OurStory from "./components/OurStory";
 import SustainabilitySection from "./components/SustainabilitySection";
 import { getProduct } from "./data/products";
 
@@ -254,6 +255,7 @@ function AppContent() {
         </section>
 
         <HowItWorks />
+        <OurStory />
         <SustainabilitySection />
       </main>
 
